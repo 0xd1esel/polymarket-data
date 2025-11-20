@@ -70,11 +70,27 @@ This allows you to:
 
 ### Output Files
 
-Generated CSV files are saved in the `output/` directory:
-- `<market-slug>.csv`: Detailed fill-by-fill data
-- `<market-slug>_summary.csv`: Aggregated statistics
+Generated files are saved in the `output/` directory:
+- **Individual CSVs**: One file per token/outcome (54 files for NFL example)
+  - `<market-slug>_<market>_<outcome>.csv`
+- **Summary CSV**: `<market-slug>_summary.csv` - Aggregated statistics
+- **Excel Workbook**: `<market-slug>_combined.xlsx` - All data in one file with multiple sheets
+  - Summary sheet with statistics
+  - One sheet per token/outcome
+  - Formatted headers and frozen rows
+  - Auto-sized columns
 
-## CSV Format
+## Output Formats
+
+### Excel Workbook (Recommended)
+
+The combined Excel file (`<market-slug>_combined.xlsx`) includes:
+- **Summary Sheet**: Overview of all markets with statistics
+- **Individual Sheets**: One per token/outcome with all fills
+- **Formatted**: Colored headers, frozen top row, auto-sized columns
+- **Easy Analysis**: Perfect for Excel/Google Sheets analysis
+
+### CSV Files
 
 ### Detailed CSV Columns
 

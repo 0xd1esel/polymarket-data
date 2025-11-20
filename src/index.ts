@@ -7,6 +7,7 @@ import { SubgraphClient } from './subgraphClient';
 import { FillsProcessor } from './dataProcessor';
 import { CacheManager } from './cacheManager';
 import { CSVExporter } from './csvExporter';
+import { ExcelExporter } from './excelExporter';
 
 interface FetchOptions {
   marketSlug: string;
@@ -34,6 +35,7 @@ async function fetchPolymarketData(options: FetchOptions): Promise<void> {
   const processor = new FillsProcessor();
   const cacheManager = new CacheManager();
   const csvExporter = new CSVExporter();
+  const excelExporter = new ExcelExporter();
 
   try {
     let tokenFills;
@@ -43,7 +45,7 @@ async function fetchPolymarketData(options: FetchOptions): Promise<void> {
       // Only use cached data
       console.log('\n[1/3] Loading cached fills data...\n');
       const cachedFills = cacheManager.loadFillsData(marketSlug);
-      
+
       if (!cachedFills) {
         throw new Error(`No cached fills data found for ${marketSlug}. Run without --skip-fetch first.`);
       }
@@ -108,6 +110,9 @@ async function fetchPolymarketData(options: FetchOptions): Promise<void> {
     // Export to CSV - one file per token
     await csvExporter.exportPerToken(processedFills, marketSlug);
     await csvExporter.exportSummary(processedFills, marketSlug);
+
+    // Export to Excel - combined workbook
+    await excelExporter.exportToExcel(processedFills, tokenOutcomes, marketSlug);
 
     // Print statistics
     csvExporter.printStatistics(processedFills);

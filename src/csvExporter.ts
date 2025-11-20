@@ -33,6 +33,128 @@ export class CSVExporter {
   }
 
   /**
+   * Calculate net action for binary markets
+   * Simple rule: BUY = betting on outcome, SELL = betting on opposite outcome
+   */
+  private calculateNetAction(
+    side: string,
+    outcome: string,
+    baseName: string,
+    oppositesMap: { [key: string]: string } = {}
+  ): string {
+    // Extract the outcome (last part after " - ")
+    const parts = outcome.split(' - ');
+    const outcomeOnly = parts[parts.length - 1];
+
+    if (side === 'BUY') {
+      // BUY = betting on this outcome
+      return outcomeOnly;
+    } else {
+      // SELL = betting on the opposite outcome
+      return oppositesMap[outcomeOnly] || outcomeOnly;
+    }
+  }
+
+  /**
+   * Detect binary markets and group them together
+   */
+  private detectAndGroupBinaryMarkets(
+    fillsByToken: { [key: string]: ProcessedFill[] }
+  ): Array<{ fills: ProcessedFill[]; isBinary: boolean; baseName: string }> {
+    const groups: Array<{ fills: ProcessedFill[]; isBinary: boolean; baseName: string }> = [];
+    const processed = new Set<string>();
+
+    // Get unique outcomes
+    const outcomeMap: { [outcome: string]: string[] } = {};
+    for (const key of Object.keys(fillsByToken)) {
+      const outcome = key.split('|')[0];
+      if (!outcomeMap[outcome]) {
+        outcomeMap[outcome] = [];
+      }
+      outcomeMap[outcome].push(key);
+    }
+
+    const outcomes = Object.keys(outcomeMap);
+
+    // Check for binary pairs
+    for (let i = 0; i < outcomes.length; i++) {
+      if (processed.has(outcomes[i])) continue;
+
+      const outcome1 = outcomes[i];
+      const parts1 = outcome1.split(' - ');
+      const base1 = parts1.slice(0, -1).join(' - ');
+      const suffix1 = parts1[parts1.length - 1];
+
+      // Look for a matching opposite outcome
+      let foundPair = false;
+      for (let j = i + 1; j < outcomes.length; j++) {
+        if (processed.has(outcomes[j])) continue;
+
+        const outcome2 = outcomes[j];
+        const parts2 = outcome2.split(' - ');
+        const base2 = parts2.slice(0, -1).join(' - ');
+        const suffix2 = parts2[parts2.length - 1];
+
+        // Check if they share the same base and have opposite suffixes
+        if (base1 === base2 && suffix1 !== suffix2) {
+          const isBinaryPair = (
+            (suffix1.includes('Over') && suffix2.includes('Under')) ||
+            (suffix1.includes('Under') && suffix2.includes('Over')) ||
+            (suffix1.includes('Yes') && suffix2.includes('No')) ||
+            (suffix1.includes('No') && suffix2.includes('Yes')) ||
+            // Any other case where they share the same base but different suffixes
+            // (e.g., "Cowboys" vs "Raiders" for moneyline/spread markets)
+            (base1 !== '' && suffix1 !== '' && suffix2 !== '')
+          );
+
+          if (isBinaryPair) {
+            // Combine both outcomes into one group
+            const combinedFills: ProcessedFill[] = [];
+            for (const key of outcomeMap[outcome1]) {
+              combinedFills.push(...fillsByToken[key]);
+            }
+            for (const key of outcomeMap[outcome2]) {
+              combinedFills.push(...fillsByToken[key]);
+            }
+
+            // Sort by timestamp (most recent first)
+            combinedFills.sort((a, b) => parseInt(b.timestamp_unix) - parseInt(a.timestamp_unix));
+
+            groups.push({
+              fills: combinedFills,
+              isBinary: true,
+              baseName: base1,
+            });
+
+            processed.add(outcome1);
+            processed.add(outcome2);
+            foundPair = true;
+            break;
+          }
+        }
+      }
+
+      // If no pair found, add as individual outcome
+      if (!foundPair) {
+        const fills: ProcessedFill[] = [];
+        for (const key of outcomeMap[outcome1]) {
+          fills.push(...fillsByToken[key]);
+        }
+        fills.sort((a, b) => parseInt(b.timestamp_unix) - parseInt(a.timestamp_unix));
+
+        groups.push({
+          fills,
+          isBinary: false,
+          baseName: outcome1,
+        });
+        processed.add(outcome1);
+      }
+    }
+
+    return groups;
+  }
+
+  /**
    * Get the output CSV file path
    */
   getOutputPath(marketSlug: string, suffix: string = ''): string {
@@ -84,7 +206,7 @@ export class CSVExporter {
   }
 
   /**
-   * Export separate CSV files per token
+   * Export separate CSV files per token (or combined for binary markets)
    */
   async exportPerToken(
     processedFills: ProcessedFill[],
@@ -106,46 +228,102 @@ export class CSVExporter {
       fillsByToken[key].push(fill);
     }
 
+    // Detect binary markets and group them
+    const binaryGroups = this.detectAndGroupBinaryMarkets(fillsByToken);
+
     const exportedFiles: string[] = [];
 
-    console.log(`\nExporting ${Object.keys(fillsByToken).length} separate CSV files...`);
+    console.log(`\nExporting ${binaryGroups.length} separate CSV files...`);
 
-    for (const [key, fills] of Object.entries(fillsByToken)) {
-      const outcome = fills[0].outcome;
+    for (const group of binaryGroups) {
+      let fills = group.fills;
       
-      // Create a clean filename from the outcome
-      const cleanOutcome = outcome
-        .replace(/[^a-zA-Z0-9\s\-:]/g, '') // Remove special chars
-        .replace(/\s+/g, '_') // Replace spaces with underscores
-        .replace(/_+/g, '_') // Remove duplicate underscores
-        .replace(/^_|_$/g, '') // Remove leading/trailing underscores
-        .toLowerCase();
+      // For binary markets, add net_action to each fill
+      if (group.isBinary) {
+        // Extract both possible outcomes from the fills to determine opposites
+        const uniqueOutcomes = [...new Set(fills.map(f => f.outcome.split(' - ').pop() || ''))];
+        const oppositesMap = uniqueOutcomes.length === 2 ? {
+          [uniqueOutcomes[0]]: uniqueOutcomes[1],
+          [uniqueOutcomes[1]]: uniqueOutcomes[0]
+        } : {};
+        
+        fills = fills.map(fill => {
+          const net_action = this.calculateNetAction(fill.side, fill.outcome, group.baseName, oppositesMap);
+          return { ...fill, net_action };
+        });
+      }
+      
+      let filename: string;
+      if (group.isBinary) {
+        // For binary markets, use the base name directly
+        const cleanBaseName = group.baseName
+          .replace(/[^a-zA-Z0-9\s\-]/g, '') // Remove special chars except dash
+          .replace(/\s+/g, '_') // Replace spaces with underscores
+          .replace(/_+/g, '_') // Remove duplicate underscores
+          .replace(/^_|_$/g, '') // Remove leading/trailing underscores
+          .toLowerCase();
+        filename = `${marketSlug}_${cleanBaseName}.csv`;
+      } else {
+        // For non-binary, parse market name and outcome
+        const displayName = fills[0].outcome;
+        const parts = displayName.split(' - ');
+        const market = parts.slice(0, -1).join(' - ');
+        const outcomeOnly = parts[parts.length - 1];
+        
+        const cleanMarket = market
+          .replace(/[^a-zA-Z0-9\s\-]/g, '') // Remove special chars except dash
+          .replace(/\s+/g, '_') // Replace spaces with underscores
+          .replace(/_+/g, '_') // Remove duplicate underscores
+          .replace(/^_|_$/g, '') // Remove leading/trailing underscores
+          .toLowerCase();
+        
+        const cleanOutcome = outcomeOnly
+          .replace(/[^a-zA-Z0-9\s\-]/g, '') // Remove special chars except dash
+          .replace(/\s+/g, '_') // Replace spaces with underscores
+          .replace(/_+/g, '_') // Remove duplicate underscores
+          .replace(/^_|_$/g, '') // Remove leading/trailing underscores
+          .toLowerCase();
+        
+        filename = `${marketSlug}_${cleanMarket}_${cleanOutcome}.csv`;
+      }
 
-      const filename = `${marketSlug}_${cleanOutcome}.csv`;
       const filePath = path.join(this.outputDir, filename);
+
+      // Build header based on whether net_action is present
+      const hasNetAction = fills.some(f => f.net_action !== undefined);
+      const header = [
+        { id: 'timestamp_pst', title: 'Timestamp (PST)' },
+        { id: 'timestamp_unix', title: 'Timestamp (Unix)' },
+        { id: 'side', title: 'Side' },
+        { id: 'outcome', title: 'Outcome' },
+      ];
+
+      if (hasNetAction) {
+        header.push({ id: 'net_action', title: 'Net Action' });
+      }
+
+      header.push(
+        { id: 'price', title: 'Price' },
+        { id: 'amount', title: 'Amount' },
+        { id: 'transaction_hash', title: 'Transaction Hash' },
+        { id: 'order_hash', title: 'Order Hash' },
+        { id: 'maker', title: 'Maker' },
+        { id: 'taker', title: 'Taker' },
+        { id: 'token_id', title: 'Token ID' },
+        { id: 'fee', title: 'Fee' },
+      );
 
       const csvWriter = createObjectCsvWriter({
         path: filePath,
-        header: [
-          { id: 'timestamp_pst', title: 'Timestamp (PST)' },
-          { id: 'timestamp_unix', title: 'Timestamp (Unix)' },
-          { id: 'outcome', title: 'Outcome' },
-          { id: 'side', title: 'Side' },
-          { id: 'price', title: 'Price' },
-          { id: 'amount', title: 'Amount' },
-          { id: 'transaction_hash', title: 'Transaction Hash' },
-          { id: 'order_hash', title: 'Order Hash' },
-          { id: 'maker', title: 'Maker' },
-          { id: 'taker', title: 'Taker' },
-          { id: 'token_id', title: 'Token ID' },
-          { id: 'fee', title: 'Fee' },
-        ],
+        header,
       });
 
       await csvWriter.writeRecords(fills);
       
       const stats = fs.statSync(filePath);
-      console.log(`  ${outcome}: ${fills.length} fills (${(stats.size / 1024).toFixed(2)} KB)`);
+      const displayName = group.isBinary ? group.baseName : fills[0].outcome;
+      const label = group.isBinary ? `${displayName} (Binary)` : displayName;
+      console.log(`  ${label}: ${fills.length} fills (${(stats.size / 1024).toFixed(2)} KB)`);
       
       exportedFiles.push(filePath);
     }

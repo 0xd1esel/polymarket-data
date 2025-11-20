@@ -52,6 +52,7 @@ export interface ProcessedFill {
     price: number;
     amount: number;
     side: 'BUY' | 'SELL' | 'UNKNOWN';
+    net_action?: string; // For binary markets: which side they're betting on
     transaction_hash: string;
     order_hash: string;
     maker: string;

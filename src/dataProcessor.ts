@@ -59,14 +59,14 @@ export class FillsProcessor {
   }
 
   /**
-   * Convert Unix timestamp to PST/PDT datetime string
+   * Convert Unix timestamp to PST/PDT datetime string with 12-hour format
    */
   formatTimestamp(timestamp: string): string {
     const date = new Date(parseInt(timestamp) * 1000);
     return formatInTimeZone(
       date,
       config.outputTimezone,
-      'yyyy-MM-dd HH:mm:ss zzz'
+      'yyyy-MM-dd hh:mm:ss a zzz'
     );
   }
 
