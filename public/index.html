@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Maximizer v2.0</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <div id="main-view" class="view active">
+            <h1 class="title">the maximizer v2.0</h1>
+            
+            <div class="input-section">
+                <label for="slug-input">Enter Polymarket Slug</label>
+                <input 
+                    type="text" 
+                    id="slug-input" 
+                    placeholder="e.g., nfl-dal-lv-2025-11-17"
+                    autocomplete="off"
+                >
+                <button id="fetch-btn" class="primary-btn">Fetch</button>
+            </div>
+
+            <div id="status-message" class="status-message hidden"></div>
+        </div>
+
+        <div id="download-view" class="view">
+            <h1 class="title">the maximizer v2.0</h1>
+            
+            <div class="download-section">
+                <p class="success-text">✅ Your data is ready!</p>
+                <button id="download-btn" class="primary-btn download">Download Excel Sheet</button>
+            </div>
+        </div>
+
+        <div id="thank-you-view" class="view">
+            <h1 class="title">the maximizer v2.0</h1>
+            
+            <div class="thank-you-section">
+                <p class="thank-you-text">Thank you for downloading!</p>
+                <img src="celebrate.gif" alt="Celebration" class="celebration-img">
+                <button id="fetch-another-btn" class="secondary-btn">Fetch Another</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
+

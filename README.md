@@ -1,188 +1,147 @@
-# Polymarket Data Fetcher
+# The Maximizer v2.0
 
-A TypeScript tool to pull Polymarket trading data and format it into useful CSV files.
+A beautiful web app for fetching and analyzing Polymarket data with comprehensive Excel exports.
 
 ## Features
 
-- 🚀 **Parallel Processing**: Fetches data for multiple tokens concurrently
-- 💾 **Smart Caching**: Caches raw API responses to avoid redundant requests
-- 🔄 **Rate Limit Resilient**: Automatic retry logic with exponential backoff
-- 📊 **CSV Export**: Exports formatted data with price, amount, and timestamps
-- 🕐 **Timezone Support**: Converts Unix timestamps to PST/PDT
-- 📈 **Statistics**: Generates summary statistics for each market
+- 🎯 **Simple Interface**: Enter a Polymarket slug and fetch complete market data
+- 📊 **Binary Market Grouping**: Over/Under and team-based markets are automatically combined
+- 📈 **Net Action Analysis**: Clear visibility into directional bets (Over vs Under, Team A vs Team B)
+- 📥 **Excel Export**: Professional workbook with multiple sheets and detailed summary
+- ⚡ **Real-time Processing**: Live progress updates during data fetch
+- 💾 **Smart Caching**: Faster subsequent requests with local caching
 
-## Installation
+## Quick Start
+
+### 1. Install Dependencies
 
 ```bash
 npm install
 ```
 
-## Usage
-
-### Basic Usage
-
-Fetch data for a market by slug:
+### 2. Start the Server
 
 ```bash
-npm run fetch -- will-donald-trump-win-2024-election
+npm run server
 ```
 
-### Options
+The server will start on `http://localhost:3000`
+
+### 3. Use the App
+
+1. Open your browser to `http://localhost:3000`
+2. Enter a Polymarket slug (e.g., `nfl-dal-lv-2025-11-17`)
+3. Click "Fetch" and wait for processing
+4. Download your Excel file when ready!
+
+## Command Line Usage
+
+You can still use the command-line tool directly:
 
 ```bash
-# Don't use cache, fetch fresh data
-npm run fetch -- <market-slug> --no-cache
-
-# Use cached data only and regenerate CSV
-npm run fetch -- <market-slug> --skip-fetch
-
-# Show help
-npm run fetch -- --help
+npm run fetch -- <market-slug> [--skip-fetch]
 ```
 
-## How It Works
+Example:
+```bash
+npm run fetch -- nfl-dal-lv-2025-11-17
+```
 
-1. **Fetch Market Data**: Uses the Polymarket Gamma API to get market information and token IDs
-2. **Fetch Fills Data**: Queries the Polymarket subgraph for all order fill events across all tokens in the market
-3. **Process Data**: Calculates fill prices, amounts, and formats timestamps
-4. **Export to CSV**: Creates detailed and summary CSV files
+Options:
+- `--skip-fetch`: Use cached data if available (faster)
 
-## Data Architecture
+## Output
 
-### APIs Used
+### Excel Workbook
 
-- **Gamma API**: Market metadata and token information
-  - Endpoint: `https://gamma-api.polymarket.com`
-  
-- **Polymarket Subgraph**: Order fill events and trading data
-  - Endpoint: Goldsky GraphQL endpoint
+The generated Excel file includes:
 
-### Caching Strategy
+1. **Summary Sheet**: Aggregated statistics for all markets
+   - Total Fills, Volume, Prices, Time Range
+   - Binary markets grouped (27 rows instead of 54)
+   
+2. **Individual Sheets**: One per market/binary pair
+   - Timestamp (PST with AM/PM)
+   - Side (BUY/SELL)
+   - Outcome
+   - **Net Action** (the actual directional bet)
+   - Price, Amount, Transaction Details
+   
+3. **Comprehensive Notes**: Explanation of data structure and interpretation
 
-Raw API responses are cached in the `cache/` directory:
-- `market_<slug>.json`: Market metadata
-- `fills_<slug>.json`: Raw fill events for all tokens
+### Binary Market Grouping
 
-This allows you to:
-- Regenerate CSVs with different formatting without re-fetching
-- Work offline once data is fetched
-- Avoid hitting rate limits during development
+Markets are intelligently grouped:
+- **Over/Under**: Combined into single sheets
+- **Team vs Team**: Combined into single sheets  
+- **Statistics**: Aggregated across both outcomes
 
-### Output Files
+### Net Action Column
 
-Generated files are saved in the `output/` directory:
-- **Individual CSVs**: One file per token/outcome (54 files for NFL example)
-  - `<market-slug>_<market>_<outcome>.csv`
-- **Summary CSV**: `<market-slug>_summary.csv` - Aggregated statistics
-- **Excel Workbook**: `<market-slug>_combined.xlsx` - All data in one file with multiple sheets
-  - Summary sheet with statistics
-  - One sheet per token/outcome
-  - Formatted headers and frozen rows
-  - Auto-sized columns
-
-## Output Formats
-
-### Excel Workbook (Recommended)
-
-The combined Excel file (`<market-slug>_combined.xlsx`) includes:
-- **Summary Sheet**: Overview of all markets with statistics
-- **Individual Sheets**: One per token/outcome with all fills
-- **Formatted**: Colored headers, frozen top row, auto-sized columns
-- **Easy Analysis**: Perfect for Excel/Google Sheets analysis
-
-### CSV Files
-
-### Detailed CSV Columns
-
-| Column | Description |
-|--------|-------------|
-| `Timestamp (PST)` | Human-readable timestamp in PST/PDT |
-| `Timestamp (Unix)` | Unix timestamp |
-| `Outcome` | Token outcome (YES/NO) |
-| `Side` | Trade side (BUY/SELL) |
-| `Price` | Fill price (0-1 range, e.g., 0.65 = 65¢) |
-| `Amount` | Token amount traded |
-| `Transaction Hash` | Ethereum transaction hash |
-| `Order Hash` | Order hash |
-| `Maker` | Maker address |
-| `Taker` | Taker address |
-| `Token ID` | Token/Asset ID |
-| `Fee` | Fee amount |
-
-### Summary CSV Columns
-
-- Outcome
-- Total Fills
-- Total Volume
-- Average Volume
-- Min/Max/Avg Price
-- Current Price (most recent)
-
-## Configuration
-
-Edit `src/config.ts` to customize:
-
-- **Rate Limiting**: Concurrent request limits, retry attempts
-- **GraphQL**: Page size for pagination
-- **Directories**: Cache and output locations
-- **Timezone**: Output timezone for timestamps
+Shows the true directional bet:
+- `BUY Over` → Net Action: **Over**
+- `SELL Over` → Net Action: **Under**
+- `BUY Cowboys` → Net Action: **Cowboys**
+- `SELL Cowboys` → Net Action: **Raiders**
 
 ## Project Structure
 
 ```
-src/
-├── index.ts           # Main orchestrator script
-├── config.ts          # Configuration
-├── types.ts           # TypeScript type definitions
-├── gammaClient.ts     # Gamma API client
-├── subgraphClient.ts  # GraphQL subgraph client
-├── dataProcessor.ts   # Data processing & price calculation
-├── cacheManager.ts    # Caching layer
-└── csvExporter.ts     # CSV export functionality
-```
-
-## Building
-
-```bash
-npm run build
-```
-
-Compiled JavaScript will be in the `dist/` directory.
-
-## Development
-
-Run directly with ts-node:
-
-```bash
-npm run dev -- <market-slug>
-```
-
-## Rate Limiting & Resilience
-
-The tool is designed to be resilient to rate limits:
-
-- **Exponential Backoff**: Automatically retries with increasing delays
-- **Concurrent Limits**: Configurable maximum concurrent requests
-- **Pagination**: Fetches data in chunks to avoid timeouts
-- **Caching**: Reduces redundant API calls
-
-## Finding Market Slugs
-
-Market slugs can be found in Polymarket URLs:
+polymarket-data/
+├── src/
+│   ├── server.ts           # Express server
+│   ├── index.ts            # CLI entry point
+│   ├── gammaClient.ts      # Gamma API client
+│   ├── subgraphClient.ts   # GraphQL subgraph client
+│   ├── dataProcessor.ts    # Data processing logic
+│   ├── csvExporter.ts      # CSV export functionality
+│   ├── excelExporter.ts    # Excel export functionality
+│   ├── cacheManager.ts     # Caching logic
+│   ├── config.ts           # Configuration
+│   └── types.ts            # TypeScript interfaces
+├── public/
+│   ├── index.html          # Web app UI
+│   ├── style.css           # Styling
+│   ├── app.js              # Frontend logic
+│   └── celebrate.gif       # Thank you image
+├── cache/                  # Cached API responses
+└── output/                 # Generated files
 
 ```
-https://polymarket.com/event/will-donald-trump-win-2024-election
-                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-                                    This is the slug
+
+## API Endpoints
+
+### POST `/api/fetch`
+Start a data fetch job
+```json
+{
+  "slug": "nfl-dal-lv-2025-11-17",
+  "useCache": true
+}
 ```
 
-Or use the Gamma API to search markets:
+### GET `/api/status/:jobId`
+Check job status
 
-```bash
-curl https://gamma-api.polymarket.com/markets?limit=10
-```
+### GET `/api/download/:filename`
+Download the generated Excel file
+
+### GET `/api/health`
+Health check
+
+## Data Sources
+
+- **Gamma API**: Market and event metadata
+- **Polymarket Subgraph**: Historical fill data via GraphQL
+- **Full Pagination**: Ensures complete historical data capture
+
+## Notes
+
+- Each trade appears twice (BUY + SELL) due to Polymarket's event structure
+- Summary statistics account for this by dividing counts and volumes by 2
+- Timestamps are in PST/PDT with AM/PM format and second precision
+- All data is cached locally for faster subsequent requests
 
 ## License
 
 MIT
-

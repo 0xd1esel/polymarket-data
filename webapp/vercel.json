@@ -1,0 +1,9 @@
+{
+  "functions": {
+    "app/api/fetch/route.ts": {
+      "maxDuration": 60,
+      "memory": 1024
+    }
+  }
+}
+
