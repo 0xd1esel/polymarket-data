@@ -95,10 +95,6 @@ export default function Home() {
     await downloadSlug(slugToRedownload)
   }
 
-  const handleDownload = () => {
-    // Not needed anymore - download happens immediately
-  }
-
   const handleFetchAnother = () => {
     setView('input')
     setSlug('')
@@ -111,7 +107,7 @@ export default function Home() {
       <div className="w-full max-w-3xl">
 
         {/* Main Title - Outside Cards */}
-        <h1 className="text-8xl font-black text-center mb-12 text-gray-300 tracking-tight drop-shadow-2xl">
+        <h1 className="text-8xl font-black text-center mb-12 text-gray-300 tracking-tight drop-shadow-2xl whitespace-nowrap">
           the maximizer 2.0
         </h1>
 

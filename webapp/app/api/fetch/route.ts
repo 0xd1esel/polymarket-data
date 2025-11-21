@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
     return new NextResponse(buffer, {
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'Content-Disposition': `attachment; filename="${slug}_combined.xlsx"`,
+        'Content-Disposition': `attachment; filename="${slug}.xlsx"`,
         'Content-Length': buffer.length.toString(),
       },
     });
