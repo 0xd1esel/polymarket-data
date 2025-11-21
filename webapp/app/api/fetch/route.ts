@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     // Fetch fills data
     console.log(`[${slug}] Fetching fills for ${tokenIdArray.length} tokens...`);
     let tokenFills;
-    
+
     if (useCache && cacheManager.hasFillsCache(slug)) {
       const cachedFills = cacheManager.loadFillsData(slug);
       if (cachedFills) {
@@ -68,8 +68,11 @@ export async function POST(request: NextRequest) {
 
     console.log(`[${slug}] Done! Generated ${buffer.length} bytes`);
 
+    // Convert buffer to Uint8Array for Response compatibility
+    const uint8Array = new Uint8Array(buffer);
+
     // Return the file directly
-    return new NextResponse(buffer, {
+    return new Response(uint8Array, {
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'Content-Disposition': `attachment; filename="${slug}.xlsx"`,
