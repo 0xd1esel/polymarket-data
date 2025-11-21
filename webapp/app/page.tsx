@@ -112,7 +112,7 @@ export default function Home() {
 
         {/* Main Title - Outside Cards */}
         <h1 className="text-8xl font-black text-center mb-12 text-gray-300 tracking-tight drop-shadow-2xl">
-          the maximizer v2.0
+          the maximizer 2.0
         </h1>
 
         {/* Input View */}
